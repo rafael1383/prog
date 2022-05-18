@@ -1,0 +1,193 @@
+import random
+import sys
+from typing import Tuple
+
+import pygame
+
+# Inicialização
+from pygame import font
+
+pygame.init()
+
+# Configurando a janela
+screenWidth = 1280
+screenHeight = 960
+screen = pygame.display.set_mode((screenWidth, screenHeight))
+pygame.display.set_caption('Pong')
+scoreOpponent = 0
+scorePlayer = 0
+onMenu = True
+
+
+# Classes
+class Entity:
+    def update(self, dt):
+        pass
+
+
+class Physics:
+    def update(self,world, dt):
+        pass
+
+class BallPhysics(Physics):
+    def update(self, world, dt):
+        global scoreOpponent
+        global scorePlayer
+        world.ball.body.x = world.ball.body.x + world.ball.speedX * dt
+        world.ball.body.y = world.ball.body.y + world.ball.speedY * dt
+        if world.ball.body.top <= 0 or world.ball.body.bottom >= screenHeight:
+            world.ball.speedY = -world.ball.speedY
+            # score
+        if world.ball.body.left >= screenWidth:
+            scoreOpponent += 1
+        if world.ball.body.right <= 0:
+            scorePlayer += 1
+             # Resetball
+        if world.ball.body.left > screenWidth or world.ball.body.right < 0:
+            world.ball.body.center = (screenWidth / 2, screenHeight / 2)
+            world.ball.speedX = random.choice((-0.5, 0.5))
+
+class Ball(Entity):
+    def __init__(self, physics):
+
+        self.physics = physics
+        self.body = pygame.Rect(screenWidth / 2 - 15, screenHeight / 2 - 15, 30, 30)
+        self.speedX = 0.4
+        self.speedY = 0.4
+        self.scoreOpponent = 0
+        self.scorePlayer = 0
+
+class PlayerPhysics(Physics):
+    def update(self, world, dt):
+        if world.ball.body.bottom >= world.player.body.top and world.ball.body.top <= world.player.body.bottom and world.ball.body.right >= world.player.body.left:
+            delta = world.ball.body.centery - world.player.body.centery
+            world.ball.speedY = delta * 0.01
+            world.ball.speedX *= -1
+        (x, y) = pygame.mouse.get_pos()
+        world.player.body.y = y - 70
+
+
+class Player(Entity):
+    def __init__(self, physics):
+        self.body = pygame.Rect(screenWidth - 20, screenHeight / 2 - 70, 10, 140)
+        self.physics = physics
+
+
+class OpponentPhysics(Physics):
+    def update(self,world, dt):
+        if world.opponent.body.bottom < world.ball.body.y:
+            world.opponent.body.bottom += world.opponent.speed
+        if world.opponent.body.top > world.ball.body.y:
+            world.opponent.body.top -= world.opponent.speed
+        if world.ball.body.bottom >= world.opponent.body.top and world.ball.body.top <= world.opponent.body.bottom and world.ball.body.left <= world.opponent.body.right:
+            delta = world.ball.body.centery - world.opponent.body.centery
+            world.ball.speedY = delta * 0.01
+            world.ball.speedX *= -1
+
+
+class Opponent(Entity):
+    def __init__(self, physics):
+        self.body = pygame.Rect(10, screenHeight / 2 - 70, 10, 140)
+        self.speed = 8
+        self.physics = physics
+
+class World:
+    def __init__(self):
+        bphysics = BallPhysics()
+        self.ball = Ball(bphysics)
+        pphysics =PlayerPhysics()
+        self.player = Player(pphysics)
+        ophysics =OpponentPhysics()
+        self.opponent = Opponent(ophysics)
+
+
+
+def inputs():
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            pygame.quit()
+            sys.exit()
+
+
+def draw():
+    global scoreOpponent
+    global scorePlayer
+
+
+    white = (255,255,255)
+    black = (0,0,0)
+    screen.fill((0, 0, 0))
+    pygame.draw.ellipse(screen, (200, 200, 200), world.ball.body)
+    pygame.draw.rect(screen, (200, 200, 200), world.player.body)
+    pygame.draw.rect(screen, (200, 200, 200), world.opponent.body)
+
+    # Selecting Fonts
+    usersFont = pygame.font.SysFont('OCR A Extended', 20)
+    pointsFont = pygame.font.SysFont('OCR A Extended', 80)
+
+    # Points Surfaces
+    opponentPoints_surface = pointsFont.render(str(scoreOpponent), False, (255, 255, 255))
+    playerPoints_surface = pointsFont.render(str(scorePlayer), False, (255, 255, 255))
+
+    # Player Label
+    player_surface = usersFont.render("PLAYER", False, (255, 255, 255))
+    screen.blit(player_surface, (680, 60))
+
+    # Opponent Label
+    opponent_surface = usersFont.render("OPPONENT", False, (255, 255, 255))
+    screen.blit(opponent_surface, (570, 60))
+
+    # Drawing points text
+    screen.blit(playerPoints_surface, (690, 80))
+    screen.blit(opponentPoints_surface, (590, 80))
+
+
+
+# Atualizando a janela 60fps
+    pygame.display.flip()
+
+# Objetos
+world = World()
+entities = []
+entities.append(world.ball)
+entities.append(world.player)
+entities.append(world.opponent)
+
+
+previous = pygame.time.get_ticks()
+lag = 0
+FPS = 60
+MS_PER_UPDATE = 1000 / FPS
+
+# Drawing background
+
+while onMenu:
+    menu = pygame.image.load('pong menu3shadow-copia.jpg')
+    screen.blit(menu, (0, 0))
+    pygame.display.flip()
+
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            pygame.quit()
+            sys.exit()
+        # Check Mouse Click
+        if event.type == pygame.MOUSEBUTTONDOWN:
+           onMenu = False
+
+
+
+while True:
+    current = pygame.time.get_ticks()
+    elapsed = current - previous
+    previous = current
+    lag += elapsed
+    # Entradas
+    inputs()
+    # Atualização
+    while lag >= MS_PER_UPDATE:
+        # Atualização
+        for e in entities:
+            e.physics.update(world,MS_PER_UPDATE)
+        lag -= MS_PER_UPDATE
+    # Desenho
+    draw()
